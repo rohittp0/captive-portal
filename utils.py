@@ -1,5 +1,6 @@
 import struct
 import time
+from pathlib import Path
 
 from _socket import inet_aton
 
@@ -143,3 +144,30 @@ def sorted_hosts(hosts):
     hosts = list(hosts)
     hosts.sort(key=lambda host: (host.hostname.lower(), host.mac.lower(), host.ip.lower()))
     return hosts
+
+
+class AuthDatabase(object):
+    def __init__(self, folder='auth'):
+        self.folder = folder
+        Path(folder).mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _mac_to_file(mac: str):
+        return mac.replace(":", "-")
+
+    def check_auth(self, mac):
+        file = Path(self.folder, AuthDatabase._mac_to_file(mac))
+
+        if not file.exists():
+            return False
+
+        expiry = file.read_text().strip()
+        return float(expiry) > time.time()
+
+    def add_auth(self, mac, expiry=3600):
+        file = Path(self.folder, AuthDatabase._mac_to_file(mac))
+        file.write_text(str(time.time() + expiry))
+
+    def remove_auth(self, mac):
+        file = Path(self.folder, AuthDatabase._mac_to_file(mac))
+        file.unlink(missing_ok=True)

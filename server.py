@@ -10,25 +10,36 @@ from _socket import socket, SOCK_DGRAM, SOL_SOCKET, SO_REUSEADDR, SO_BROADCAST
 from listener import ReadBootProtocolPacket
 from server_conf import DHCPServerConfiguration, get_host_ip_addresses
 from server_helpers import DelayWorker, Transaction
-from utils import HostDatabase, Host, CASEINSENSITIVE, GREATER, sorted_hosts
+from utils import HostDatabase, Host, CASEINSENSITIVE, GREATER, sorted_hosts, AuthDatabase
 
 
 class DHCPServer(object):
 
-    def __init__(self, configuration=None):
+    def __init__(self):
         self.ips = None
 
-        if configuration is None:
-            configuration = DHCPServerConfiguration()
+        self.configuration = DHCPServerConfiguration()
 
-        self.configuration = configuration
+        configuration = DHCPServerConfiguration()
+        configuration.router = configuration.captive_gateway
+        configuration.ip_address_lease_time = configuration.login_wait_time
+        self.pre_auth_configuration = configuration
+
+        configuration = DHCPServerConfiguration()
+        configuration.router = configuration.internet_gateway
+        configuration.ip_address_lease_time = configuration.login_refresh_time
+        self.post_auth_configuration = configuration
+
+        self.auth = AuthDatabase()
+        self.delay_worker = DelayWorker()
+        self.hosts = HostDatabase(self.configuration.host_file)
+
         self.socket = socket(type=SOCK_DGRAM)
         self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self.socket.bind((self.configuration.bind_address, 67))
-        self.delay_worker = DelayWorker()
+
         self.closed = False
         self.transactions = collections.defaultdict(lambda: Transaction(self))  # id: transaction
-        self.hosts = HostDatabase(self.configuration.host_file)
         self.time_started = time.time()
 
     def close(self):

@@ -56,6 +56,15 @@ class Transaction(object):
     def close(self):
         self.done = True
 
+    def check_auth(self, packet):
+        return self.server.auth.check_auth(packet.client_mac_address)
+
+    def get_configuration(self, packet):
+        if self.check_auth(packet):
+            return self.server.post_auth_configuration
+        else:
+            return self.server.pre_auth_configuration
+
     def receive(self, packet):
         # packet from client <-> packet.message_type == 1
         if packet.message_type == 1 and packet.dhcp_message_type == 'DHCPDISCOVER':
@@ -77,20 +86,18 @@ class Transaction(object):
         self.send_offer(discovery)
 
     def send_offer(self, discovery):
-        # https://tools.ietf.org/html/rfc2131
-        offer = WriteBootProtocolPacket(self.configuration)
+        offer = WriteBootProtocolPacket(self.get_configuration(discovery))
         offer.parameter_order = discovery.parameter_request_list
-        mac = discovery.client_mac_address
         offer.your_ip_address = self.server.get_ip_address(discovery)
         # offer.client_ip_address =
         offer.transaction_id = discovery.transaction_id
         # offer.next_server_ip_address =
         offer.relay_agent_ip_address = discovery.relay_agent_ip_address
-        offer.client_mac_address = mac
+        offer.client_mac_address = discovery.client_mac_address
         offer.client_ip_address = discovery.client_ip_address or '0.0.0.0'
         offer.bootp_flags = discovery.bootp_flags
         offer.dhcp_message_type = 'DHCPOFFER'
-        offer.client_identifier = mac
+        offer.client_identifier = discovery.client_mac_address
         self.server.broadcast(offer)
 
     def received_dhcp_request(self, request):
@@ -102,7 +109,7 @@ class Transaction(object):
         self.close()
 
     def acknowledge(self, request):
-        ack = WriteBootProtocolPacket(self.configuration)
+        ack = WriteBootProtocolPacket(self.get_configuration(request))
         ack.parameter_order = request.parameter_request_list
         ack.transaction_id = request.transaction_id
         # ack.next_server_ip_address =

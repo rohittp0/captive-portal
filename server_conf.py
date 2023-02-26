@@ -7,18 +7,24 @@ from utils import NETWORK
 
 
 class DHCPServerConfiguration(object):
-    dhcp_offer_after_seconds = 10
-    dhcp_acknowledge_after_seconds = 10
+    dhcp_offer_after_seconds = 0
+    dhcp_acknowledge_after_seconds = 0
     length_of_transaction = 40
 
-    bind_address = ''
+    bind_address = '0.0.0.0'
     network = '192.168.0.0'
     broadcast_address = '255.255.255.255'
     subnet_mask = '255.255.255.0'
-    router = ["192.168.0.1"]  # list of ips
-    # 1 day is 86400
-    ip_address_lease_time = 120  # seconds
     domain_name_server = ["8.8.8.8", "8.8.4.4", "1.1.1.1"]  # list of ips
+    # 1 day is 86400
+    login_wait_time = 120  # 2 minutes
+    login_refresh_time = 60*60  # 1 hour
+    # Gateway config
+    captive_gateway = ['192.168.0.4']
+    internet_gateway = ['192.168.0.1']
+
+    router = None
+    ip_address_lease_time = 0
 
     host_file = 'hosts.csv'
 
