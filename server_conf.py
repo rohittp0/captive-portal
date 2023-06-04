@@ -20,7 +20,7 @@ class DHCPServerConfiguration(object):
     login_wait_time = 120  # 2 minutes
     login_refresh_time = 60*60  # 1 hour
     # Gateway config
-    captive_gateway = ['192.168.0.4']
+    captive_gateway = ['192.168.0.2']
     internet_gateway = ['192.168.0.1']
 
     router = None
@@ -29,6 +29,7 @@ class DHCPServerConfiguration(object):
     host_file = 'hosts.csv'
 
     debug = print
+    allotted_ips = set()
 
     def load(self, file):
         with open(file) as f:
@@ -52,7 +53,7 @@ class DHCPServerConfiguration(object):
         :return: A generator to get consecutive ips in given network
         """
         ips = ip_addresses(self.network, self.subnet_mask)
-        for i in range(offset):
+        for i in range(offset + len(self.allotted_ips)):
             next(ips)
         return ips
 

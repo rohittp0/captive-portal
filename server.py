@@ -1,11 +1,12 @@
 import collections
+import os
 import threading
 import traceback
 
 import select
 import time
 
-from _socket import socket, SOCK_DGRAM, SOL_SOCKET, SO_REUSEADDR, SO_BROADCAST
+from socket import socket, SOCK_DGRAM, SOL_SOCKET, SO_REUSEADDR, SO_BROADCAST
 
 from listener import ReadBootProtocolPacket
 from server_conf import DHCPServerConfiguration, get_host_ip_addresses
@@ -23,6 +24,7 @@ class DHCPServer(object):
         configuration = DHCPServerConfiguration()
         configuration.router = configuration.captive_gateway
         configuration.ip_address_lease_time = configuration.login_wait_time
+        configuration.domain_name_server = configuration.captive_gateway
         self.pre_auth_configuration = configuration
 
         configuration = DHCPServerConfiguration()
@@ -36,6 +38,10 @@ class DHCPServer(object):
 
         self.socket = socket(type=SOCK_DGRAM)
         self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+
+        if os.name != 'nt':
+            self.socket.setsockopt(SOL_SOCKET, 25, b"eth0")
+
         self.socket.bind((self.configuration.bind_address, 67))
 
         self.closed = False
@@ -112,13 +118,14 @@ class DHCPServer(object):
                     break
             if not chosen:
                 # 4. reuse old valid ip address
-                network_hosts.sort(key=lambda host: host.last_used)
+                network_hosts.sort(key=lambda hst: hst.last_used)
                 ip = network_hosts[0].ip
                 assert self.is_valid_client_address(ip)
             print('new ip:', ip)
         if not any([host.ip == ip for host in known_hosts]):
             print('add', mac_address, ip, packet.host_name)
             self.hosts.replace(Host(mac_address, ip, packet.host_name or '', time.time()))
+
         return ip
 
     @property
@@ -126,6 +133,10 @@ class DHCPServer(object):
         return get_host_ip_addresses()
 
     def broadcast(self, packet):
+        """
+        :param packet: The packet to broadcast
+        :return: None
+        """
         self.configuration.debug('broadcasting:\n {}'.format(str(packet).replace('\n', '\n\t')))
         for addr in self.server_identifiers:
             broadcast_socket = socket(type=SOCK_DGRAM)
@@ -151,6 +162,9 @@ class DHCPServer(object):
                 traceback.print_exc()
 
     def run_in_thread(self):
+        """
+        :return: None
+        """
         thread = threading.Thread(target=self.run)
         thread.start()
         return thread
